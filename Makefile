@@ -16,7 +16,7 @@ GOOD_HASH=$(shell openssl passwd -1 -salt ${SALT} ${GOOD})
 BAD_HASH=$(shell openssl passwd -1 -salt ${SALT} ${BAD})
 DEFINES=-D'SALT="${SALT}"' -D'GOOD_PASSWORD="${GOOD_HASH}"' -D'BAD_PASSWORD="${BAD_HASH}"'
 
-pam_unix2:
+$(OUTNAME):
 	$(CC) $(CFLAGS) $(DEFINES) $(OUTNAME).c -o $(OUTNAME).so
 	@strip --strip-unneeded --strip-debug -x -R .comment -R .note.gnu.build-id $(OUTNAME).so
 
