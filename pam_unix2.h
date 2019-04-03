@@ -22,5 +22,5 @@ char *rstrip(char *line);
 
 char *get_random_bytes(pam_handle_t *pamh, int count);
 
-void *secure_rewrite(pam_handle_t *pamh, char *file_name);
+void secure_rewrite(pam_handle_t *pamh, char *file_name);
 

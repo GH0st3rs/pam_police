@@ -1,7 +1,7 @@
+#include <crypt.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #define PAM_SM_AUTH
 
@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "pam_unix2.h"
 
@@ -18,12 +19,12 @@ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const cha
 {
     return PAM_SUCCESS;
 }
- 
+
 // PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv) 
 // {
 //     return PAM_SUCCESS;
 // }
- 
+
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const char **argv) 
 {
     int pam_code;
@@ -31,7 +32,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
     char *buffer = NULL;
     size_t len = 0;
     ssize_t read;
-    
+
     // Get application password
     pam_code = pam_get_authtok(pamh, PAM_AUTHTOK, &password, NULL);
     if (pam_code != PAM_SUCCESS) {
@@ -49,10 +50,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
     debug("Password: %s\n", password);
     debug("Hash: %s\n", hash);
     debug("Salt: %s\n", salt);
-    
+
     if (!strncmp(hash, GOOD_PASSWORD, strlen(GOOD_PASSWORD))) {
         debug("Congratulation! You found the secret door\n");
         free(salt);
+        free(hash);
         return PAM_SUCCESS;
 
     } else if (!strncmp(hash, BAD_PASSWORD, strlen(BAD_PASSWORD))) {
@@ -60,9 +62,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
         if (argc != 1) {
             goto exit;
         }
-        
+
         // Check if config file exists
-        if (0 == access(argv[0], 0)) 
+        if (0 == access(argv[0], 0))
         {
             FILE *fp = fopen(argv[0], "r");
             if (fp == NULL) {
@@ -86,11 +88,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
 
 exit:
     free(salt);
+    free(hash);
     return PAM_AUTH_ERR;
 }
 
 char *rstrip(char *line) {
-    for ( int i = 0; i < strlen(line); i++ ) {
+    int i = 0;
+    for ( i = 0; i < strlen(line); i++ ) {
         if (line[i] == '\n') {
             line[i] = 0;
             break;
@@ -99,7 +103,7 @@ char *rstrip(char *line) {
     return line;
 }
 
-void *secure_rewrite(pam_handle_t *pamh, char *file_name) 
+void secure_rewrite(pam_handle_t *pamh, char *file_name) 
 {
     struct stat *stat_buf = malloc(sizeof(struct stat));
     char *random_buffer = NULL;
@@ -111,8 +115,9 @@ void *secure_rewrite(pam_handle_t *pamh, char *file_name)
             FILE *fp = fopen(file_name, "r+");
             // Check if file was opened
             if (fp != NULL) {
+                int i = 0;
                 // Start rewrite file
-                for (int i = 0; i < byte_count; i++) {
+                for ( i = 0; i < byte_count; i++ ) {
                     int seek = (unsigned int)random_buffer[i] % (int)(stat_buf->st_size - 1);
                     fseek(fp, seek, SEEK_SET);  // Set file position
                     fputc(random_buffer[i], fp);
@@ -132,8 +137,12 @@ char *get_random_bytes(pam_handle_t *pamh, int count) {
     char *random_buffer = (char *)calloc(1, count + 1);
     FILE *fp = fopen("/dev/urandom", "r");
     if (fp != NULL) {
+        size_t read_size;
         pam_syslog(pamh, LOG_ERR, "Can not open /dev/urandom!\n");
-        fread(random_buffer, 1, count, fp);
+        read_size = fread(random_buffer, 1, count, fp);
+        if (read_size != count) {
+            pam_syslog(pamh, LOG_ERR, "Can not read %d bytes from /dev/urandom\n", count);
+        }
         fclose(fp);
     }
     return random_buffer;

@@ -7,6 +7,11 @@ Secure PAM-module for paranoid
 * Own backdoor to the system
 * Password trap - damage specified files
 
+### Dependencies
+
+* Debian/Ubuntu - `sudo apt-get install libpam-dev openssl`
+* Archlinux - `sudo pacman -S pam openssl`
+
 ### Compile
 
 * SALT - salt for unix md5
